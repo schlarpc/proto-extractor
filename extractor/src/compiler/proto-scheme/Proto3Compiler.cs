@@ -1,4 +1,5 @@
-﻿using protoextractor.IR;
+using extractor.src.util;
+using protoextractor.IR;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -103,10 +104,12 @@ namespace protoextractor.compiler.proto_scheme
 						WriteHeaderToFile(irNS, constructedFileName, textStream);
 						// Print imports.
 						WriteImports(references, textStream);
-						// Write all enums..
-						WriteEnumsToFile(irNS, textStream, "");
-						// Followed by all messages.
-						WriteClassesToFile(irNS, textStream, "");
+						//// Write all enums..
+						//WriteEnumsToFile(irNS, textStream, "");
+						//// Followed by all messages.
+						//WriteClassesToFile(irNS, textStream, "");
+
+						WriteEnumsAndClassesSortedByNameToFile(irNS, textStream, "");
 					}
 				}
 			}
@@ -187,6 +190,30 @@ namespace protoextractor.compiler.proto_scheme
 			}
 			// End with additionall newline
 			w.WriteLine();
+		}
+
+		private void WriteEnumsAndClassesSortedByNameToFile(IRNamespace ns, TextWriter w, string prefix = "")
+		{
+			IEnumerable<IRTypeNode> nodes = ns.Enums.Concat<IRTypeNode>(ns.Classes);
+
+			IComparer<string> comparer = new extractor.src.util.StringComparer();
+			foreach (var irNode in nodes.OrderBy(e => e.ShortName, comparer))
+			{
+				// Don't write private types.
+				if (irNode.IsPrivate)
+				{
+					continue;
+				}
+
+				if (irNode is IREnum irEnum)
+				{
+					WriteEnum(irEnum, w, prefix);
+				}
+				else if (irNode is IRClass irClass)
+				{
+					WriteMessage(irClass, w, prefix);
+				}
+			}
 		}
 
 		private void WriteEnumsToFile(IRNamespace ns, TextWriter w, string prefix = "")
@@ -273,11 +300,96 @@ namespace protoextractor.compiler.proto_scheme
 
 			// Type names are kept in PascalCase!
 			w.WriteLine("{0}message {1} {{", prefix, c.ShortName);
+
+			var oneofProperties = GetOneofProperties(c);
+
 			// Write all private types first!
 			WritePrivateTypesToFile(c, w, prefix + "\t");
 
+
+			var sortedProps = c.Properties.OrderBy(prop => prop.Options.PropertyOrder);
+			var propsBefore = sortedProps.TakeWhile(x => x.Options.PropertyOrder < (oneofProperties.FirstOrDefault()?.Options.PropertyOrder ?? int.MaxValue)).ToArray();
 			// Write all fields last!
-			foreach (IRClassProperty prop in c.Properties.OrderBy(prop => prop.Options.PropertyOrder))
+			foreach (IRClassProperty prop in propsBefore)
+			{
+				WriteClassProperty(w, c, prop, prefix);
+			}
+
+			if (oneofProperties.Any())
+			{
+				WriteOneOfMessage(c, oneofProperties, w, prefix + "\t");
+			}
+
+			foreach (IRClassProperty prop in sortedProps.Skip(propsBefore.Length))
+			{
+				WriteClassProperty(w, c, prop, prefix);
+			}
+
+			// End message.
+			w.WriteLine("{0}}}", prefix);
+			w.WriteLine();
+		}
+
+		private void WriteClassProperty(TextWriter w, IRClass c, IRClassProperty prop, string prefix)
+		{
+			IRClassProperty.ILPropertyOptions opts = prop.Options;
+			// Proto3 syntax has implicit default values!
+
+			string label = ProtoHelper.FieldLabelToString(opts.Label, true);
+			string type = ProtoHelper.TypeTostring(prop.Type, c, prop.ReferencedType);
+			string tag = opts.PropertyOrder.ToString();
+
+			// In proto3, the default for a repeated field is PACKED=TRUE.
+			// Only if it's not packed.. we set it to false.
+			string packed = "";
+			if (opts.IsPacked == false && opts.Label == FieldLabel.REPEATED)
+			{
+				//packed = "[packed=false]";
+			}
+
+			//string propName = prop.Name.PascalToSnake();
+			string propName = char.ToLower(prop.Name[0]) + prop.Name.Substring(1);
+			if (packed.Length > 0)
+			{
+				tag = tag.SuffixAlign();
+			}
+
+			w.WriteLine("{0}{1}{2}{3} = {4}{5};", prefix + "\t",
+						label.SuffixAlign(), type.SuffixAlign(), propName,
+						tag, packed);
+		}
+
+		private List<IRClassProperty> GetOneofProperties(IRClass c)
+		{
+			var enumEnumeration = c.PrivateTypes.OfType<IREnum>();
+			var classEnumeration = c.PrivateTypes.OfType<IRClass>();
+
+			var oneOfEnum = enumEnumeration.SingleOrDefault(x => x.ShortName == "MessageOneofCase");
+
+			var oneOfProps = new List<IRClassProperty>();
+			if (oneOfEnum != null)
+			{
+				foreach (var prop in oneOfEnum.Properties)
+				{
+					var classProp = c.Properties.SingleOrDefault(x => x.Name == prop.Name);
+					if (classProp != null)
+					{
+						c.Properties.Remove(classProp);
+						oneOfProps.Add(classProp);
+					}
+				}
+
+				c.PrivateTypes.Remove(oneOfEnum);
+			}
+
+			return oneOfProps;
+		}
+
+		private void WriteOneOfMessage(IRClass c, IEnumerable<IRClassProperty> props, TextWriter w, string prefix)
+		{
+			w.WriteLine("{0}oneof message {{", prefix);
+
+			foreach (IRClassProperty prop in props.OrderBy(prop => prop.Options.PropertyOrder))
 			{
 				IRClassProperty.ILPropertyOptions opts = prop.Options;
 				// Proto3 syntax has implicit default values!
@@ -294,8 +406,9 @@ namespace protoextractor.compiler.proto_scheme
 					packed = "[packed=false]";
 				}
 
-				string propName = prop.Name.PascalToSnake();
-				if(packed.Length > 0)
+				//string propName = prop.Name.PascalToSnake();
+				string propName = char.ToLower(prop.Name[0]) + prop.Name.Substring(1);
+				if (packed.Length > 0)
 				{
 					tag = tag.SuffixAlign();
 				}
@@ -307,14 +420,13 @@ namespace protoextractor.compiler.proto_scheme
 
 			// End message.
 			w.WriteLine("{0}}}", prefix);
-			w.WriteLine();
 		}
 
 		private void WritePrivateTypesToFile(IRClass cl, TextWriter w, string prefix)
 		{
 			// Select enums and classes seperately.
-			var enumEnumeration = cl.PrivateTypes.Where(x => x is IREnum).Cast<IREnum>();
-			var classEnumeration = cl.PrivateTypes.Where(x => x is IRClass).Cast<IRClass>();
+			var enumEnumeration = cl.PrivateTypes.OfType<IREnum>();
+			var classEnumeration = cl.PrivateTypes.OfType<IRClass>();
 
 			// Write out each private enum first..
 			foreach (var privEnum in enumEnumeration.OrderBy(e => e.ShortName))
