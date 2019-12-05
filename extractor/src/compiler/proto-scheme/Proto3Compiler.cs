@@ -205,7 +205,7 @@ namespace protoextractor.compiler.proto_scheme
 		private void WriteEnum(IREnum e, TextWriter w, string prefix)
 		{
 			string reference = String.Format(_Reference, e.OriginalName);
-			WriteComments(w, prefix, reference);
+			//WriteComments(w, prefix, reference);
 
 			// Type names are kept in PascalCase!
 			w.WriteLine("{0}enum {1} {{", prefix, e.ShortName);
@@ -269,7 +269,7 @@ namespace protoextractor.compiler.proto_scheme
 		private void WriteMessage(IRClass c, TextWriter w, string prefix)
 		{
 			string reference = String.Format(_Reference, c.OriginalName);
-			WriteComments(w, prefix, reference);
+			//WriteComments(w, prefix, reference);
 
 			// Type names are kept in PascalCase!
 			w.WriteLine("{0}message {1} {{", prefix, c.ShortName);
