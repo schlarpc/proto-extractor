@@ -272,12 +272,12 @@ namespace protoextractor.decompiler.c_sharp
 
 				// Unless the enum property is already UPPER_SNAKE, convert it to UPPER_SNAKE.
 				var propName = field.Name;
-				var hasLower = propName.Where(c => char.IsLower(c)).Any();
-				if (hasLower)
-				{
-					// Convert PascalCase to UPPER_SNAKE.
-					propName = propName.PascalToSnake();
-				}
+				//var hasLower = propName.Where(c => char.IsLower(c)).Any();
+				//if (hasLower)
+				//{
+				//	// Convert PascalCase to UPPER_SNAKE.
+				//	propName = propName.PascalToSnake();
+				//}
 
 				// Add a new property to the list for this enum field
 				props.Add(new IREnumProperty
