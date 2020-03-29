@@ -107,6 +107,8 @@ namespace protoextractor
                 compiler = new Proto2Compiler(program);
             }
 
+            compiler.PackageStructured = opts.PackageStructure;
+
             if (!Directory.Exists(opts.OutDirectory))
             {
                 // Generate full path for directory.

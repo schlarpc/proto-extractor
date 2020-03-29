@@ -90,6 +90,14 @@ namespace protoextractor.util
 			set;
 		}
 
+		[Option("package-structure", Required = false, Default = false,
+				HelpText = "This switch enables generating a package-style folder structure for output files.")]
+		public bool PackageStructure
+		{
+			get;
+			set;
+		}
+
 		[Usage(ApplicationAlias = "extractor")]
 		public static IEnumerable<Example> Examples
 		{
@@ -103,7 +111,8 @@ namespace protoextractor.util
 					OutDirectory = "$(TARGET)/protos",
 					Proto3Syntax = true,
 					ResolveCircDependancies = true,
-					ResolveCollisions = true
+					ResolveCollisions = true,
+					PackageStructure = true
 				});
 			}
 		}
