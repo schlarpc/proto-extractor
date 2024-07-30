@@ -1,4 +1,4 @@
-﻿using Mono.Cecil;
+using Mono.Cecil;
 using protoextractor.decompiler.c_sharp;
 using protoextractor.IR;
 using System;
@@ -34,7 +34,7 @@ namespace protoextractor.analyzer.c_sharp
 
 		private void SetupAssemblyResolver()
 		{
-			// Assemblyresolver locates assembly dependancies for us.
+			// Assemblyresolver locates assembly dependencies for us.
 			var resolver = new DirAssemblyResolver();
 			// The directory of the actual library is added because most dependancies
 			// are located within the same folder.
