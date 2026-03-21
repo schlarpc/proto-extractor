@@ -20,9 +20,15 @@ namespace protoextractor.decompiler.c_sharp
 			{
 				return new IRClass(type.FullName, type.Name);
 			}
+			else if (type.IsValueType)
+			{
+				// Structs (e.g. Google.Protobuf.WellKnownTypes.Struct) are value types
+				// but still protobuf messages — treat them like classes.
+				return new IRClass(type.FullName, type.Name);
+			}
 			else
 			{
-				throw new Exception("The given type can not be represented by IR");
+				throw new Exception($"The given type `{type.FullName}` (IsEnum={type.IsEnum}, IsClass={type.IsClass}, IsValueType={type.IsValueType}, IsInterface={type.IsInterface}) can not be represented by IR");
 			}
 		}
 

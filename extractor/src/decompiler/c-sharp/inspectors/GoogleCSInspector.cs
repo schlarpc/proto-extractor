@@ -201,12 +201,23 @@ namespace protoextractor.decompiler.c_sharp.inspectors
 					}
 				}
 
+				// Fetch the fieldNumber for this property first.
+				// Properties without a corresponding *FieldNumber constant are not
+				// real proto fields (e.g. convenience wrappers) — skip them.
+				if (!TryExtractFieldNumber(_subjectClass, property.Name, out var tag))
+				{
+					Program.Log.Debug("Skipping property `{0}` in `{1}` — no FieldNumber constant found",
+						property.Name, _subjectClass.FullName);
+					continue;
+				}
+
 				// Object which the current property references.
 				TypeDefinition refDefinition;
 				// Field options (directly related to protobuf schema)
 				IRClassProperty.ILPropertyOptions opts = new IRClassProperty.ILPropertyOptions();
 				// Add label to the property options.
 				opts.Label = label;
+				opts.PropertyOrder = tag;
 
 				// Fetch the IR type of the property. - Doesn't actually matter, the Serialize handler will overwrite this.
 				PropertyTypeKind propType = InspectorTools.DefaultTypeMapper(property, out refDefinition);
@@ -219,11 +230,6 @@ namespace protoextractor.decompiler.c_sharp.inspectors
 					// And save the reference TYPEDEFINITION for the caller to process.
 					references.Add(refDefinition);
 				}
-
-				// Fetch the fieldNumber for this property.
-				var tag = ExtractFieldNumber(_subjectClass, property.Name);
-				// Add it to the options.
-				opts.PropertyOrder = tag;
 
 				// Construct the IR property and store it.
 				var prop = new IRClassProperty()
@@ -239,16 +245,23 @@ namespace protoextractor.decompiler.c_sharp.inspectors
 			return properties;
 		}
 
-		public static int ExtractFieldNumber(TypeDefinition subject, string propertyName)
+		public static bool TryExtractFieldNumber(TypeDefinition subject, string propertyName, out int tag)
 		{
 			// The fieldnumber can be found as a public constant value in the subject.
 			// The constant is named after the property+ "FieldNumber".
 			var tagFieldName = propertyName + "FieldNumber";
 			// Search for the field.
-			var constTagField = subject.Fields.First(f => f.Name.Equals(tagFieldName));
+			var constTagField = subject.Fields.FirstOrDefault(f => f.Name.Equals(tagFieldName));
+			if (constTagField == null)
+			{
+				// No matching FieldNumber constant — this property is not a proto field
+				// (e.g. a convenience wrapper like TransId around RawTransId).
+				tag = 0;
+				return false;
+			}
 			// Get the value of the field.
-			var tag = (int)constTagField.Constant;
-			return tag;
+			tag = (int)constTagField.Constant;
+			return true;
 		}
 	}
 }
