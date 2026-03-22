@@ -56,10 +56,6 @@ namespace protoextractor
             //************************************************************
             try
             {
-                //*----- Lowercase short- and fullnames of all namespacs -----*//
-                var lcProcessor = new LowerCaseNamespaces(program);
-                program = lcProcessor.Process();
-
                 if (opts.ManualPackagingFile.Length > 0)
                 {
                     //*----- Manually move matching namespaces into another -----*//

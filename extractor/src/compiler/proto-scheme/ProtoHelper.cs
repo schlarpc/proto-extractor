@@ -78,7 +78,7 @@ namespace protoextractor.compiler.proto_scheme
 		// eg: pkg_parent.pkg_child => <rel path>/pkg_parent/pkg_child/some_file.proto
 		public static string ResolvePackageName(IRNamespace ns)
 		{
-			return ns.FullName.ToLower();
+			return ns.FullName;
 		}
 
 		public static string ResolveTypeReferenceString(IRClass current, IRTypeNode reference)
